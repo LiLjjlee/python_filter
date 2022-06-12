@@ -1,0 +1,404 @@
+import tkinter
+from tkinter import *
+from tkinter import filedialog
+from PIL import ImageTk, Image
+import cv2 
+import numpy as np
+import math
+import matplotlib.pyplot as plt
+import glob
+from IPython.display import clear_output
+
+def select_image():  #選取檔案
+    global panelA, panelB, image_path, h2 , h5
+    path = tkinter.filedialog.askopenfilename()
+    image_path = path
+    if len(path) > 0:  # 確定有讀取到選取檔案
+        image = cv2.imread(path)
+        h, w = image.shape[:2]
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB) #開啟圖片檔
+        ip_image = Image.fromarray(image) 
+        h2=int(w/h*200)
+        ip_image = ip_image.resize((h2,200 ),Image.ANTIALIAS)
+        op_image = Image.fromarray(image)
+        h5 = int(w/h*500)
+        op_image = op_image.resize((h5,500 ),Image.ANTIALIAS)
+        ip_image = ImageTk.PhotoImage(ip_image)
+        op_image = ImageTk.PhotoImage(op_image)
+        if panelA is None or panelB is None: #若為None，呈現原始照片
+            panelA = Label(left_frame, image=ip_image, bg='black')
+            panelA.image = ip_image
+            panelA.grid(row=2, column=0, padx=10, pady=10)
+            panelB = Label(right_frame, image=op_image, bg='black')
+            panelB.image = op_image
+            panelB.grid(row=0, column=0, padx=10, pady=10)
+        else:  #若不為None，呈現修改後的照片
+            panelA.configure(image=ip_image)
+            panelB.configure(image=op_image)
+            panelA.image = ip_image
+            panelB.image = op_image
+
+def original():  #原始照片
+    global pic
+    if len(image_path) > 0:
+        image = cv2.imread(image_path)
+        pic = image
+        inv = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        inv = Image.fromarray(inv)
+        inv = inv.resize((h5, 500),Image.ANTIALIAS)
+        inv = ImageTk.PhotoImage(inv)
+        panelB.configure(image=inv)
+        panelB.image = inv
+        print("成功")
+
+def grayscale(): #灰階
+    global pic
+    if len(image_path) > 0:
+        image = cv2.imread(image_path)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        pic = image 
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        gray = Image.fromarray(gray)
+        gray = gray.resize((h5, 500),Image.ANTIALIAS)
+        gray = ImageTk.PhotoImage(gray)
+        panelB.configure(image=gray)
+        panelB.image = gray
+        print("成功")
+
+def  beauty(): #自動美化
+    global pic
+    if len(image_path) > 0:
+        image = cv2.imread(image_path)
+        origin_img = image
+        sigma=100
+        blur_img = cv2.GaussianBlur(origin_img, (0, 0), sigma)
+        usm = cv2.addWeighted(origin_img, 1.5, blur_img, -0.5, 0) 
+        pic = usm
+        usm_img = cv2.cvtColor(usm, cv2.COLOR_BGR2RGB)            
+        img_out = Image.fromarray(usm_img)
+        img_out = img_out.resize((h5, 500),Image.ANTIALIAS)
+        img_out = ImageTk.PhotoImage(img_out)
+        panelB.configure(image=img_out)
+        panelB.image = img_out
+        print("成功")
+
+def gaussian():  #朦朧美
+    global pic
+    if len(image_path) > 0:
+        image = cv2.imread(image_path)
+        image = cv2.GaussianBlur(image, (7, 7), 0)
+        pic = image
+        blur = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        blur = Image.fromarray(blur)
+        blur = blur.resize((h5, 500),Image.ANTIALIAS)
+        blur = ImageTk.PhotoImage(blur)
+        panelB.configure(image=blur)
+        panelB.image = blur
+        print("成功")
+
+def  modify_color_temperature1(): #暖色調
+    global pic
+    if len(image_path) > 0:
+        image = cv2.imread(image_path)
+        origin_img = image
+        # 計算三個通道的平均值，並依照平均值調整色調
+        imgB = origin_img[:, :, 0] 
+        imgG = origin_img[:, :, 1]
+        imgR = origin_img[:, :, 2] 
+        # 暖色調(增加r分量) -> 除了r之外都增加
+        bAve = cv2.mean(imgB)[0] +20
+        gAve = cv2.mean(imgG)[0] + 20
+        rAve = cv2.mean(imgR)[0] 
+        aveGray = (int)(bAve + gAve + rAve) / 3
+        #計算各通道增益係數，並使用此係數計算結果
+        bCoef = aveGray / bAve
+        gCoef = aveGray / gAve
+        rCoef = aveGray / rAve
+        imgB = np.floor((imgB * bCoef))  
+        imgG = np.floor((imgG * gCoef))
+        imgR = np.floor((imgR * rCoef))
+        imgb = imgB
+        imgb[imgb > 255] = 255
+        imgg = imgG
+        imgg[imgg > 255] = 255
+        imgr = imgR
+        imgr[imgr > 255] = 255
+        warm_rgb = np.dstack((imgb, imgg, imgr)).astype(np.uint8) 
+        pic = warm_rgb
+        warm_img = cv2.cvtColor(warm_rgb, cv2.COLOR_BGR2RGB)            
+        img_out = Image.fromarray(warm_img)
+        img_out = img_out.resize((h5, 500),Image.ANTIALIAS)
+        img_out = ImageTk.PhotoImage(img_out)
+        panelB.configure(image=img_out)
+        panelB.image = img_out
+        print("成功")
+        
+def  modify_color_temperature2(): #冷色調
+    global pic
+    if len(image_path) > 0:
+        image = cv2.imread(image_path)
+        origin_img = image
+        # 1.計算三個通道的平均值，並依照平均值調整色調
+        imgB = origin_img[:, :, 0] 
+        imgG = origin_img[:, :, 1]
+        imgR = origin_img[:, :, 2] 
+        # 冷色調(增加b分量) -> 除了b之外都增加
+        bAve = cv2.mean(imgB)[0] 
+        gAve = cv2.mean(imgG)[0] + 20
+        rAve = cv2.mean(imgR)[0] + 20
+        aveGray = (int)(bAve + gAve + rAve) / 3
+        #計算各通道增益係數，並使用此係數計算結果
+        bCoef = aveGray / bAve
+        gCoef = aveGray / gAve
+        rCoef = aveGray / rAve
+        imgB = np.floor((imgB * bCoef))  
+        imgG = np.floor((imgG * gCoef))
+        imgR = np.floor((imgR * rCoef))
+        imgb = imgB
+        imgb[imgb > 255] = 255
+        imgg = imgG
+        imgg[imgg > 255] = 255
+        imgr = imgR
+        imgr[imgr > 255] = 255
+        cold_rgb = np.dstack((imgb, imgg, imgr)).astype(np.uint8) 
+        pic = cold_rgb
+        cold_img = cv2.cvtColor(cold_rgb, cv2.COLOR_BGR2RGB)
+        img_out = Image.fromarray(cold_img)
+        img_out = img_out.resize((h5, 500),Image.ANTIALIAS)
+        img_out = ImageTk.PhotoImage(img_out)
+        panelB.configure(image=img_out)
+        panelB.image = img_out
+        print("成功")
+
+def negative():  #外星人
+    global pic
+    if len(image_path) > 0:
+        image = cv2.imread(image_path)
+        image = cv2.bitwise_not(image)
+        pic = image
+        neg = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        neg = Image.fromarray(neg)
+        neg = neg.resize((h5, 500),Image.ANTIALIAS)
+        neg = ImageTk.PhotoImage(neg)
+        panelB.configure(image=neg)
+        panelB.image = neg
+        print("成功")
+
+def sepia(): #復古
+    global pic
+    if len(image_path) > 0:
+        image = cv2.imread(image_path)
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        normalized_gray = np.array(gray, np.float32)/255
+        sepia = np.ones(image.shape)
+        sepia[:, :, 0] = 153 * normalized_gray # B
+        sepia[:, :, 1] = 204 * normalized_gray # G
+        sepia[:, :, 2] = 255 * normalized_gray # R
+        image = np.array(sepia, np.uint8)
+        pic = image
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        image = Image.fromarray(image)
+        image = image.resize((h5, 500),Image.ANTIALIAS)
+        image = ImageTk.PhotoImage(image)
+        panelB.configure(image=image)
+        panelB.image = image
+        print("成功")
+
+         
+def  modify_contrast_and_brightness1():  #增加對比度
+    global pic
+    if len(image_path) > 0:
+        image = cv2.imread(image_path)
+        origin_img = image
+        brightness = 0
+        contrast = -100
+        B = brightness / 255.0
+        c = contrast / 255.0 
+        k = math.tan((45 + 44 * c) / 180 * math.pi)
+        img = (origin_img - 127.5 * (1 - B)) * k + 127.5 * (1 + B)
+        # 所有值必須介於 0~255 之間，超過255 = 255，小於 0 = 0
+        img = np.clip(img, 0, 255).astype(np.uint8)
+        pic = img
+        image_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        img_out = Image.fromarray(image_rgb)
+        img_out = img_out.resize((h5, 500),Image.ANTIALIAS)
+        img_out = ImageTk.PhotoImage(img_out)
+        panelB.configure(image=img_out)
+        panelB.image = img_out
+        print("成功")
+
+def  modify_contrast_and_brightness2():  #減少對比度
+    global pic
+    if len(image_path) > 0:
+        image = cv2.imread(image_path)
+        origin_img = image
+        brightness = 0
+        contrast = +200
+        B = brightness / 255.0
+        c = contrast / 255.0 
+        k = math.tan((45 + 44 * c) / 180 * math.pi)
+        img = (origin_img - 127.5 * (1 - B)) * k + 127.5 * (1 + B)
+        # 所有值必須介於 0~255 之間，超過255 = 255，小於 0 = 0
+        img = np.clip(img, 0, 255).astype(np.uint8)
+        pic = img
+        image_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        img_out = Image.fromarray(image_rgb)
+        img_out = img_out.resize((h5, 500),Image.ANTIALIAS)
+        img_out = ImageTk.PhotoImage(img_out)
+        panelB.configure(image=img_out)
+        panelB.image = img_out
+        print("成功")
+    
+def edged():  #黑底白邊
+    global pic
+    if len(image_path) > 0:
+        image = cv2.imread(image_path)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        edged = cv2.Canny(image, 50, 100)
+        pic = edged
+        edged = Image.fromarray(edged)
+        edged = edged.resize((h5, 500),Image.ANTIALIAS)
+        edged = ImageTk.PhotoImage(edged)
+        panelB.configure(image=edged)
+        panelB.image = edged
+        print("成功")
+
+def  clahe():  #白底黑邊
+    global pic
+    if len(image_path) > 0:
+        image = cv2.imread(image_path)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        origin_img = image
+        # 將圖片做模糊化
+        blur_img = cv2.medianBlur(origin_img ,5) 
+        th6 = cv2.adaptiveThreshold(blur_img,255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY,11,2)
+        pic = th6
+        # 一般圖高斯加權均值法自適應二值化
+        th6 = cv2.cvtColor(th6, cv2.COLOR_BGR2RGB)            
+        img_out = Image.fromarray(th6)
+        img_out = img_out.resize((h5, 500),Image.ANTIALIAS)
+        img_out = ImageTk.PhotoImage(img_out)
+        panelB.configure(image=img_out)
+        panelB.image = img_out
+        print("成功")
+
+def  increase_img():  #增加亮度
+    global pic
+    if len(image_path) > 0:
+        image = cv2.imread(image_path)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        origin_img = image
+        maxIntensity = 255.0 
+        x = np.arange(maxIntensity) # 製作 x軸 刻度
+        phi = 1
+        theta = 1
+        increase_img = (maxIntensity/phi)*(origin_img/(maxIntensity/theta))**0.5
+        increase_img = np.array(increase_img, dtype=np.uint8)
+        pic = increase_img
+        y = (maxIntensity/phi)*(x/(maxIntensity/theta))**0.5
+        increase_img = cv2.cvtColor(increase_img, cv2.COLOR_BGR2RGB)            
+        img_out = Image.fromarray(increase_img)
+        img_out = img_out.resize((h5, 500),Image.ANTIALIAS)
+        img_out = ImageTk.PhotoImage(img_out)
+        panelB.configure(image=img_out)
+        panelB.image = img_out
+        print("成功")
+        
+def  decrease_img():   #調暗亮度
+    global pic
+    if len(image_path) > 0:
+        image = cv2.imread(image_path)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        origin_img = image
+        maxIntensity = 255.0 
+        x = np.arange(maxIntensity) # 製作 x軸 刻度
+        phi = 1
+        theta = 1
+        decrease_img = (maxIntensity/phi)*(origin_img/(maxIntensity/theta))**2
+        decrease_img = np.array(decrease_img, dtype=np.uint8)
+        pic =decrease_img
+        z = (maxIntensity/phi)*(x/(maxIntensity/theta))**2
+        decrease_img = cv2.cvtColor(decrease_img, cv2.COLOR_BGR2RGB)            
+        img_out = Image.fromarray(decrease_img)
+        img_out = img_out.resize((h5, 500),Image.ANTIALIAS)
+        img_out = ImageTk.PhotoImage(img_out)
+        panelB.configure(image=img_out)
+        panelB.image = img_out
+        print("成功")
+        
+def  colorful():  #鮮豔
+    global pic
+    if len(image_path) > 0:
+        image = cv2.imread(image_path)
+        origin_img = image  
+        fImg = origin_img.astype(np.float32)
+        fImg = fImg / 255.0
+        #顏色空間轉換 BGR -> HLS
+        hlsImg = cv2.cvtColor(fImg, cv2.COLOR_BGR2HLS)
+        hlsCopy = np.copy(hlsImg)
+        lightness = 0 # lightness 調整為  "1 +/- 幾 %"
+        saturation = 300 # saturation 調整為 "1 +/- 幾 %"
+        # 亮度調整
+        hlsCopy[:, :, 1] = (1 + lightness / 100.0) * hlsCopy[:, :, 1]
+        hlsCopy[:, :, 1][hlsCopy[:, :, 1] > 1] = 1 
+        # 飽和度調整
+        hlsCopy[:, :, 2] = (1 + saturation / 100.0) * hlsCopy[:, :, 2]
+        hlsCopy[:, :, 2][hlsCopy[:, :, 2] > 1] = 1  
+        # 顏色空間反轉換 HLS -> BGR 
+        result_img = cv2.cvtColor(hlsCopy, cv2.COLOR_HLS2BGR)
+        result_img = ((result_img * 255).astype(np.uint8))
+        pic = result_img
+        img_out = cv2.cvtColor(result_img, cv2.COLOR_BGR2RGB)
+        img_out = Image.fromarray(img_out)
+        img_out = img_out.resize((h5, 500),Image.ANTIALIAS)
+        img_out = ImageTk.PhotoImage(img_out)
+        panelB.configure(image=img_out)
+        panelB.image = img_out
+        print("成功")
+        
+def saveImage():  #儲存照片
+    path = tkinter.filedialog.asksaveasfilename(defaultextension="jpg", filetypes=[("JPG", "*.jpg")])
+    cv2.imwrite(path, pic)
+
+panelA = None
+panelB = None   
+
+master = Tk()   #GUI介面設置
+master.title('濾鏡一夏~')
+master.maxsize(2000, 1000)
+master.config(bg="#CDA581")
+
+left_frame = Frame(master, width=200, height=400,bg='white' )
+left_frame.grid(row=0, column=1, padx=100, pady=50)
+
+right_frame = Frame(master, width=500, height=500, bg='white')
+right_frame.grid(row=0, column=0, padx=100, pady=50)
+
+Button(left_frame,text="選擇照片", command=select_image, bg='#876D5A', fg='white').grid(row=0, column=0, padx=5, pady=5, sticky='w'+'e'+'n'+'s')
+Button(left_frame, text="查看原始照片", command=original, bg='#876D5A', fg='white').grid(row=1, column=0, padx=5, pady=5, sticky='w'+'e'+'n'+'s')
+
+Label(left_frame, image=panelA, bg='white', fg='#876D5A').grid(row=2, column=0, padx=10, pady=10)
+Label(right_frame,text="請選擇照片", image=panelB, bg='white', fg='#876D5A').grid(row=0, column=0, padx=10, pady=10)
+
+Label(left_frame, text="[濾鏡]", bg='#9A6852', fg='white').grid(row=3, column=0, padx=5, pady=5, sticky='w'+'e'+'n'+'s')
+
+tool_bar = Frame(left_frame, width=180, height=185, bg='white')
+tool_bar.grid(row=4, column=0, padx=5, pady=5)
+
+Button(tool_bar, text="灰階", command=grayscale, bg='#DABEA7', fg='white').grid(row=1, column=0, padx=5, pady=5, sticky='w'+'e'+'n'+'s')
+Button(tool_bar, text="朦朧美", command=gaussian, bg='#DABEA7', fg='white').grid(row=1, column=1, padx=5, pady=5, sticky='w'+'e'+'n'+'s')
+Button(tool_bar, text="外星人", command=negative, bg='#DABEA7', fg='white').grid(row=2, column=0, padx=5, pady=5, sticky='w'+'e'+'n'+'s')
+Button(tool_bar, text="自動美化", command=beauty, bg='#DABEA7', fg='white').grid(row=2, column=1, padx=5, pady=5, sticky='w'+'e'+'n'+'s')
+Button(tool_bar, text="復古", command=sepia, bg='#DABEA7', fg='white').grid(row=3, column=0, padx=5, pady=5, sticky='w'+'e'+'n'+'s')
+Button(tool_bar, text="鮮豔", command=colorful, bg='#DABEA7', fg='white').grid(row=3, column=1, padx=5, pady=5, sticky='w'+'e'+'n'+'s')
+Button(tool_bar, text="黑底白邊", command=edged, bg='#DABEA7', fg='white').grid(row=4, column=0, padx=5, pady=5, sticky='w'+'e'+'n'+'s')
+Button(tool_bar, text="白底黑邊", command=clahe, bg='#DABEA7', fg='white').grid(row=4, column=1, padx=5, pady=5, sticky='w'+'e'+'n'+'s')
+Button(tool_bar, text="增加亮度", command=increase_img, bg='#DABEA7', fg='white').grid(row=5, column=0, padx=5, pady=5, sticky='w'+'e'+'n'+'s')
+Button(tool_bar, text="調暗量度", command=decrease_img, bg='#DABEA7', fg='white').grid(row=5, column=1, padx=5, pady=5, sticky='w'+'e'+'n'+'s')
+Button(tool_bar, text="增加對比度", command=modify_contrast_and_brightness2, bg='#DABEA7', fg='white').grid(row=6, column=0, padx=5, pady=5, sticky='w'+'e'+'n'+'s')
+Button(tool_bar, text="減少對比度", command= modify_contrast_and_brightness1, bg='#DABEA7', fg='white').grid(row=6, column=1, padx=5, pady=5, sticky='w'+'e'+'n'+'s')
+Button(tool_bar, text="暖色調", command=modify_color_temperature1, bg='#DABEA7', fg='white').grid(row=7, column=0, padx=5, pady=5, sticky='w'+'e'+'n'+'s')
+Button(tool_bar, text="冷色調", command=modify_color_temperature2, bg='#DABEA7', fg='white').grid(row=7, column=1, padx=5, pady=5, sticky='w'+'e'+'n'+'s')
+
+Button(left_frame, text="儲存", command=saveImage, bg='#9A6852', fg='white').grid(row=5, column=0, padx=5, pady=5, sticky='w'+'e'+'n'+'s')
+mainloop()
